@@ -126,19 +126,10 @@ jobs:
 
           os.makedirs('/tmp/wiki_pages', exist_ok=True)
 
-          existing_wiki = set()
-          wiki_path = '/tmp/wiki'
-          if os.path.exists(wiki_path):
-              existing_wiki = {f[:-3] for f in os.listdir(wiki_path) if f.endswith('.md')}
-
           failed = []
           footer_tpl = "\n\n---\n*Generated from [{sha}](https://github.com/{repo}/commit/{sha}) · {date}*"
 
           for topic, exts in topic_files.items():
-              if topic in existing_wiki:
-                  print(f"Skip (exists): {topic}")
-                  continue
-
               print(f"Generating: {topic}...")
               t0 = time.time()
 
@@ -180,7 +171,7 @@ jobs:
           print("All pages generated")
           EOF
 
-      - name: Push all pages and update Table of Contents
+      - name: Push all pages to Wiki
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -192,34 +183,8 @@ jobs:
 
           cp /tmp/wiki_pages/*.md /tmp/wiki/ 2>/dev/null || true
 
-          python3 - <<'PYEOF'
-          import os
-
-          wiki_dir = "/tmp/wiki"
-          toc_file = os.path.join(wiki_dir, "Table-of-Contents.md")
-
-          pages = sorted([
-              f[:-3] for f in os.listdir(wiki_dir)
-              if f.endswith(".md") and f != "Table-of-Contents.md"
-          ])
-
-          lines = [
-              "# Table of Contents\n",
-              "_Auto-generated index of all wiki pages._\n",
-              "",
-          ]
-          for page in pages:
-              display = page.replace("-", " ")
-              lines.append(f"- [{display}]({page})")
-
-          with open(toc_file, "w") as f:
-              f.write("\n".join(lines))
-
-          print(f"ToC updated with {len(pages)} pages")
-          PYEOF
-
           cd /tmp/wiki
           git add .
           git diff --cached --quiet && exit 0
-          git commit -m "wiki: bulk generate pages + update Table of Contents"
+          git commit -m "wiki: bulk generate pages"
           git push
